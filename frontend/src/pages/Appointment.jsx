@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -8,11 +8,13 @@ import { Calendar } from '../components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Calendar as CalendarIcon, Clock, User, Mail, Phone } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
-import { vehicles } from '../mockData';
+import { getVehicles, createAppointment } from '../services/api';
 
 const Appointment = () => {
   const { toast } = useToast();
   const [date, setDate] = useState(new Date());
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,22 +24,72 @@ const Appointment = () => {
     message: ''
   });
 
-  const handleSubmit = (e) => {
+  // Load vehicles from backend
+  useEffect(() => {
+    const loadVehicles = async () => {
+      try {
+        const data = await getVehicles();
+        setVehicles(data);
+      } catch (error) {
+        console.error('Error loading vehicles:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load vehicles. Please refresh the page.",
+          variant: "destructive"
+        });
+      }
+    };
+    loadVehicles();
+  }, [toast]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mock submission
-    toast({
-      title: "Appointment Requested!",
-      description: "We'll confirm your test drive appointment within 24 hours.",
-    });
-    // Reset form
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      vehicleId: '',
-      timeSlot: '',
-      message: ''
-    });
+    setLoading(true);
+
+    try {
+      // Format date as YYYY-MM-DD
+      const formattedDate = date.toISOString().split('T')[0];
+
+      // Create appointment data matching backend schema
+      const appointmentData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        vehicleId: formData.vehicleId,
+        date: formattedDate,
+        timeSlot: formData.timeSlot,
+        message: formData.message || undefined
+      };
+
+      // Submit to backend
+      await createAppointment(appointmentData);
+
+      // Show success message
+      toast({
+        title: "Appointment Requested!",
+        description: "We'll confirm your test drive appointment within 24 hours.",
+      });
+
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        vehicleId: '',
+        timeSlot: '',
+        message: ''
+      });
+      setDate(new Date());
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to create appointment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (field, value) => {
@@ -81,7 +133,8 @@ const Appointment = () => {
                         value={formData.name}
                         onChange={(e) => handleChange('name', e.target.value)}
                         required
-                        placeholder="John Smith"
+                        placeholder="Mc Larren"
+                        disabled={loading}
                       />
                     </div>
 
@@ -96,7 +149,8 @@ const Appointment = () => {
                         value={formData.email}
                         onChange={(e) => handleChange('email', e.target.value)}
                         required
-                        placeholder="john@example.com"
+                        placeholder="mclarren@example.com"
+                        disabled={loading}
                       />
                     </div>
                   </div>
@@ -112,19 +166,25 @@ const Appointment = () => {
                       value={formData.phone}
                       onChange={(e) => handleChange('phone', e.target.value)}
                       required
-                      placeholder="(555) 123-4567"
+                      placeholder="(67) 123-4567"
+                      disabled={loading}
                     />
                   </div>
 
                   <div className="form-group">
                     <Label htmlFor="vehicle">Select Vehicle *</Label>
-                    <Select value={formData.vehicleId} onValueChange={(value) => handleChange('vehicleId', value)} required>
+                    <Select 
+                      value={formData.vehicleId} 
+                      onValueChange={(value) => handleChange('vehicleId', value)} 
+                      required
+                      disabled={loading}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Choose a McLaren model" />
                       </SelectTrigger>
                       <SelectContent>
                         {vehicles.map(vehicle => (
-                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                          <SelectItem key={vehicle._id} value={vehicle._id}>
                             {vehicle.year} {vehicle.name} - {vehicle.color}
                           </SelectItem>
                         ))}
@@ -143,7 +203,7 @@ const Appointment = () => {
                           mode="single"
                           selected={date}
                           onSelect={setDate}
-                          disabled={(date) => date < new Date(new Date().toDateString())}
+                          disabled={(date) => date < new Date(new Date().toDateString()) || loading}
                           className="rounded-md border"
                         />
                       </div>
@@ -154,7 +214,12 @@ const Appointment = () => {
                         <Clock className="inline h-4 w-4 mr-1" />
                         Time Slot *
                       </Label>
-                      <Select value={formData.timeSlot} onValueChange={(value) => handleChange('timeSlot', value)} required>
+                      <Select 
+                        value={formData.timeSlot} 
+                        onValueChange={(value) => handleChange('timeSlot', value)} 
+                        required
+                        disabled={loading}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Choose a time" />
                         </SelectTrigger>
@@ -177,11 +242,12 @@ const Appointment = () => {
                       onChange={(e) => handleChange('message', e.target.value)}
                       placeholder="Any specific requirements or questions?"
                       rows={4}
+                      disabled={loading}
                     />
                   </div>
 
-                  <Button type="submit" size="lg" className="w-full">
-                    Request Appointment
+                  <Button type="submit" size="lg" className="w-full" disabled={loading}>
+                    {loading ? 'Submitting...' : 'Request Appointment'}
                   </Button>
                 </form>
               </CardContent>

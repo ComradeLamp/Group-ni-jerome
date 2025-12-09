@@ -6,9 +6,11 @@ import { Textarea } from '../components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Mail, Phone, MapPin, Clock, Send } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
+import { createInquiry } from '../services/api';
 
 const Contact = () => {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,19 +19,48 @@ const Contact = () => {
     message: ''
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast({
-      title: "Message Sent!",
-      description: "Thank you for contacting us. We'll respond within 24 hours.",
-    });
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      subject: '',
-      message: ''
-    });
+    setLoading(true);
+
+    try {
+      // Create inquiry data matching backend schema
+      const inquiryData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || undefined,
+        subject: formData.subject,
+        message: formData.message,
+        vehicleId: undefined // No specific vehicle for general contact
+      };
+
+      // Submit to backend
+      await createInquiry(inquiryData);
+
+      // Show success message
+      toast({
+        title: "Message Sent!",
+        description: "Thank you for contacting us. We'll respond within 24 hours.",
+      });
+
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        subject: '',
+        message: ''
+      });
+    } catch (error) {
+      console.error('Error creating inquiry:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (field, value) => {
@@ -65,7 +96,8 @@ const Contact = () => {
                       value={formData.name}
                       onChange={(e) => handleChange('name', e.target.value)}
                       required
-                      placeholder="John Smith"
+                      placeholder="Mc Larren"
+                      disabled={loading}
                     />
                   </div>
 
@@ -78,7 +110,8 @@ const Contact = () => {
                         value={formData.email}
                         onChange={(e) => handleChange('email', e.target.value)}
                         required
-                        placeholder="john@example.com"
+                        placeholder="mclarren@example.com"
+                        disabled={loading}
                       />
                     </div>
 
@@ -89,7 +122,8 @@ const Contact = () => {
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => handleChange('phone', e.target.value)}
-                        placeholder="(555) 123-4567"
+                        placeholder="(67) 123-4567"
+                        disabled={loading}
                       />
                     </div>
                   </div>
@@ -102,6 +136,7 @@ const Contact = () => {
                       onChange={(e) => handleChange('subject', e.target.value)}
                       required
                       placeholder="What can we help you with?"
+                      disabled={loading}
                     />
                   </div>
 
@@ -114,12 +149,13 @@ const Contact = () => {
                       required
                       placeholder="Tell us more about your inquiry..."
                       rows={6}
+                      disabled={loading}
                     />
                   </div>
 
-                  <Button type="submit" size="lg" className="w-full">
+                  <Button type="submit" size="lg" className="w-full" disabled={loading}>
                     <Send className="mr-2 h-5 w-5" />
-                    Send Message
+                    {loading ? 'Sending...' : 'Send Message'}
                   </Button>
                 </form>
               </CardContent>
@@ -140,8 +176,8 @@ const Contact = () => {
                     <div>
                       <p className="font-semibold">Address</p>
                       <p className="text-sm text-muted-foreground">
-                        123 Supercar Boulevard<br />
-                        Beverly Hills, CA 90210
+                        123 Puro Boulevard<br />
+                        Legazpi Albay, PH 4500
                       </p>
                     </div>
                   </div>
